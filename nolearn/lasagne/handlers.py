@@ -58,6 +58,17 @@ class PrintLog:
             out += "\n"
             self.first_iteration = False
 
+            f = open( 'tracker.csv', 'w' )
+            f.write( 'train_loss,valid_loss,train_accuracy,valid_accuracy\n')
+            f.close()
+
+        f = open( 'tracker.csv', 'a' )
+        f.write( str(info['train_loss'])+','+\
+                 str(info['valid_loss'])+','+\
+                 str(info['train_accuracy'])+','+\
+                 str(info['valid_accuracy'])+'\n' )
+        f.close()
+
         out += tabulated.rsplit('\n', 1)[-1]
         return out
 
@@ -210,7 +221,6 @@ class PrintLayerInfo:
             )
 
         return layer_infos, legend
-
 
 class WeightLog:
     """Keep a log of your network's weights and weight changes.
