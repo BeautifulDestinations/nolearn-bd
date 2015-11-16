@@ -503,6 +503,7 @@ class NeuralNet(BaseEstimator):
             epoch += 1
 
             train_losses = []
+            train_accuracies = []
             valid_losses = []
             valid_accuracies = []
             custom_score = []
@@ -513,6 +514,10 @@ class NeuralNet(BaseEstimator):
                 batch_train_loss = self.apply_batch_func(
                     self.train_iter_, Xb, yb)
                 train_losses.append(batch_train_loss)
+
+                batch_valid_loss, accuracy = self.apply_batch_func(
+                    self.eval_iter_, Xb, yb)
+                train_accuracies.append(accuracy)
 
                 for func in on_batch_finished:
                     func(self, self.train_history_)
@@ -528,6 +533,7 @@ class NeuralNet(BaseEstimator):
                     custom_score.append(self.custom_score[1](yb, y_prob))
 
             avg_train_loss = np.mean(train_losses)
+            avg_train_accuracy = np.mean( train_accuracies )
             avg_valid_loss = np.mean(valid_losses)
             avg_valid_accuracy = np.mean(valid_accuracies)
             if custom_score:
@@ -544,6 +550,7 @@ class NeuralNet(BaseEstimator):
                 'train_loss_best': best_train_loss == avg_train_loss,
                 'valid_loss': avg_valid_loss,
                 'valid_loss_best': best_valid_loss == avg_valid_loss,
+                'train_accuracy': avg_train_accuracy,
                 'valid_accuracy': avg_valid_accuracy,
                 'dur': time() - t0,
                 }
