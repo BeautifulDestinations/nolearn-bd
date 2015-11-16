@@ -241,6 +241,9 @@ class WeightLog:
                         '{}_{} wdiff'.format(key, i),
                         '{}_{} wabsmean'.format(key, i),
                         '{}_{} wmean'.format(key, i),
+                        '{}_{} wmin'.format(key, i),
+                        '{}_{} wmax'.format(key, i),
+                        '{}_{} wstd'.format(key, i),
                         ])
 
             newfile = self.last_weights is None
@@ -259,10 +262,16 @@ class WeightLog:
                 wdiff = numpy.abs(p1 - p2).mean()
                 wabsmean = numpy.abs(p2).mean()
                 wmean = p2.mean()
+                wmin  = p2.min()
+                wmax  = p2.max()
+                wstd  = p2.std()
                 entry.update({
                     '{}_{} wdiff'.format(key, i): wdiff,
                     '{}_{} wabsmean'.format(key, i): wabsmean,
                     '{}_{} wmean'.format(key, i): wmean,
+                    '{}_{} wmin'.format(key, i): wmin,
+                    '{}_{} wmax'.format(key, i): wmax,
+                    '{}_{} wstd'.format(key, i): wstd,
                     })
         self.history.append(entry)
 
