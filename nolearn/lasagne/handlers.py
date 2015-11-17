@@ -13,7 +13,6 @@ from .util import ansi
 from .util import get_conv_infos
 from .util import is_conv2d
 
-
 class PrintLog:
     def __init__(self):
         self.first_iteration = True
@@ -239,6 +238,7 @@ class WeightLog:
         self.write_every = write_every
         self._dictwriter = None
         self._save_to_file = None
+        self.PRINTED = False
 
     def __call__(self, nn, train_history):
         weights = nn.get_all_params_values()
@@ -283,6 +283,11 @@ class WeightLog:
                     '{}_{} wmax'.format(key, i): wmax,
                     '{}_{} wstd'.format(key, i): wstd,
                     })
+                if not self.PRINTED:
+                    print '\nMEAN and VARIANCES of layer weights'
+                    self.PRINTED = True
+                if wdiff == 0.:
+                    print key, wmean, wstd
         self.history.append(entry)
 
         if self.save_to:
