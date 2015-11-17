@@ -5,6 +5,7 @@ from lasagne.layers import get_output
 from lasagne.layers import get_output_shape
 import matplotlib.pyplot as plt
 import numpy as np
+import math
 import theano
 import theano.tensor as T
 
@@ -18,7 +19,7 @@ def plot_loss(net):
     plt.legend(loc='best')
 
 
-def plot_conv_weights(layer, figsize=(6, 6)):
+def plot_conv_weights(layer, figsize=(6, 6), N = None):
     """Plot the weights of a specific layer.
 
     Only really makes sense with convolutional layers.
@@ -32,6 +33,10 @@ def plot_conv_weights(layer, figsize=(6, 6)):
     shape = W.shape
     nrows = np.ceil(np.sqrt(shape[0])).astype(int)
     ncols = nrows
+    
+    if isinstance( N, int ):
+        nrows = int( math.sqrt( N ) )
+        ncols = nrows
 
     for feature_map in range(shape[1]):
         figs, axes = plt.subplots(nrows, ncols, figsize=figsize)
@@ -48,7 +53,7 @@ def plot_conv_weights(layer, figsize=(6, 6)):
                               interpolation='nearest')
 
 
-def plot_conv_activity(net, layer0, fname, figsize=(6, 8)):
+def plot_conv_activity(net, layer0, fname, figsize=(6, 6), N = None):
     """Plot the acitivities of a specific layer.
 
     Only really makes sense with layers that work 2D data (2D
@@ -101,6 +106,10 @@ def plot_conv_activity(net, layer0, fname, figsize=(6, 8)):
     shape = activity.shape
     nrows = np.ceil(np.sqrt(shape[1])).astype(int)
     ncols = nrows
+
+    if isinstance( N, int ):
+        nrows = int( math.sqrt( N ) )
+        ncols = nrows
 
     plt.figure( 10 )
     image = Image.open( fname[0] , 'r' )
