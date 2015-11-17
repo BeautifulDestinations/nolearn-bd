@@ -1,12 +1,12 @@
 from itertools import product
-
+import Image
+import lasagne.layers
 from lasagne.layers import get_output
 from lasagne.layers import get_output_shape
 import matplotlib.pyplot as plt
 import numpy as np
 import theano
 import theano.tensor as T
-
 
 def plot_loss(net):
     train_loss = [row['train_loss'] for row in net.train_history_]
@@ -48,7 +48,7 @@ def plot_conv_weights(layer, figsize=(6, 6)):
                               interpolation='nearest')
 
 
-def plot_conv_activity(layer, x, figsize=(6, 8)):
+def plot_conv_activity(net, layer0, fname, figsize=(6, 8)):
     """Plot the acitivities of a specific layer.
 
     Only really makes sense with layers that work 2D data (2D
@@ -60,24 +60,66 @@ def plot_conv_activity(layer, x, figsize=(6, 8)):
 
     x : numpy.ndarray
       Only takes one sample at a time, i.e. x.shape[0] == 1.
-
     """
-    if x.shape[0] != 1:
-        raise ValueError("Only one sample can be plotted at a time.")
+    if isinstance( fname, str ):
+        fname= np.asarray( [fname] )
+    if isinstance( fname, list ):
+        fname = np.asarray( fname )
+
+    assert fname.shape[0] == 1, \
+        "Only one sample can be plotted at a time."
+
+    x, y = net.batch_iterator_train.transform( fname, 0. )
+
+    inLayers = [ layer for layer in net.layers_.values()
+                       if isinstance( layer, lasagne.layers.InputLayer ) ]
+    layerL = []
+    tensorL = []
+    tensorDic = {}
+    for layer in inLayers:
+        lname = layer.name
+        lshape = layer.shape
+        layerL.append( lname )
+        print lshape
+        if len( lshape ) == 2:
+            tensorL.append( T.matrix( lname ) )
+        if len( lshape ) == 3:
+            tensorL.append( T.tensor3( lname ) )
+        if len( lshape ) == 4:
+            tensorL.append( T.tensor4( lname ) )
+        tensorDic[ net.layers_[lname] ] = tensorL[ -1 ]
 
     # compile theano function
-    xs = T.tensor4('xs').astype(theano.config.floatX)
-    get_activity = theano.function([xs], get_output(layer, xs))
+    output = lasagne.layers.get_output( layer0, inputs = tensorDic )
+    get_activity = theano.function( tensorL, output, on_unused_input='warn' )
 
-    activity = get_activity(x)
+    valL = []
+    for layer in inLayers:
+        valL.append( x[layer.name] )        
+    
+    activity = get_activity( *valL )
     shape = activity.shape
     nrows = np.ceil(np.sqrt(shape[1])).astype(int)
     ncols = nrows
 
+    plt.figure( 10 )
+    image = Image.open( fname[0] , 'r' )
+    w,h = image.size
+    dNew = 256
+    if h < w:
+        image = image.resize( (dNew, w*dNew/h) )
+    else:
+        image = image.resize( (h*dNew/w, dNew) )
+    w, h = image.size
+    image = image.crop( (w//2-112,h//2-112,w//2+112,h//2+112) )
+    imageArray = np.fromstring( image.tostring(), dtype = 'uint8', \
+                                count = -1, sep = '' ).reshape( ( 224, 224, 3 ) )
+    plt.imshow(imageArray)
+
     figs, axes = plt.subplots(nrows + 1, ncols, figsize=figsize)
-    axes[0, ncols // 2].imshow(1 - x[0][0], cmap='gray',
-                               interpolation='nearest')
-    axes[0, ncols // 2].set_title('original')
+#    axes[0, ncols // 2].imshow(1 - x[0][0], cmap='gray',
+#                               interpolation='nearest')
+#    axes[0, ncols // 2].set_title('original')
 
     for ax in axes.flatten():
         ax.set_xticks([])
