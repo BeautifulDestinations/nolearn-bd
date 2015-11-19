@@ -267,6 +267,8 @@ class WeightLog:
 
         entry = {}
         lw = self.last_weights if self.last_weights is not None else weights
+        if not self.PRINTED:
+            print '\nMEAN and VARIANCES of layer weights\n'
         for key in weights.keys():
             for i, (p1, p2) in enumerate(zip(lw[key], weights[key])):
                 wdiff = numpy.abs(p1 - p2).mean()
@@ -284,10 +286,11 @@ class WeightLog:
                     '{}_{} wstd'.format(key, i): wstd,
                     })
                 if not self.PRINTED:
-                    print '\nMEAN and VARIANCES of layer weights'
-                    self.PRINTED = True
-                if wdiff == 0.:
                     print key, wmean, wstd
+
+        if not self.PRINTED:
+            print ''
+            self.PRINTED = True
         self.history.append(entry)
 
         if self.save_to:
