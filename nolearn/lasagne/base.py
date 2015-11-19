@@ -14,7 +14,7 @@ from lasagne.layers import InputLayer
 from lasagne.layers import Layer
 from lasagne import regularization
 from lasagne.objectives import aggregate
-from lasagne.objectives import categorical_crossentropy
+from lasagne.objectives import categorical_crossentropy, binary_crossentropy
 from lasagne.objectives import squared_error
 from lasagne.updates import nesterov_momentum
 from lasagne.utils import unique
@@ -181,6 +181,7 @@ class NeuralNet(BaseEstimator):
         on_training_started=None,
         on_training_finished=None,
         more_params=None,
+        layer_weights= None,
         verbose=0,
         **kwargs
         ):
@@ -240,6 +241,7 @@ class NeuralNet(BaseEstimator):
         self.on_training_started = on_training_started or []
         self.on_training_finished = on_training_finished or []
         self.more_params = more_params or {}
+        self.layer_weights = layer_weights
         self.verbose = verbose
         if self.verbose:
             # XXX: PrintLog should come before any other handlers,
@@ -414,6 +416,9 @@ class NeuralNet(BaseEstimator):
         if not self.regression:
             predict = predict_proba.argmax(axis=1)
             accuracy = T.mean(T.eq(predict, y_batch))
+        elif self.objective_loss_function is binary_crossentropy:
+            predict = T.where( predict_proba >= 0.5, 1, 0 )
+            accuracy = T.mean( T.eq(predict, y_batch) )
         else:
             accuracy = loss_eval
 
@@ -536,7 +541,7 @@ class NeuralNet(BaseEstimator):
             avg_valid_loss = np.mean(valid_losses)
             if self.objective_loss_function is not squared_error:
                 avg_train_accuracy = np.mean( train_accuracies )
-                avg_valid_accuracy = np.mean(valid_accuracies)
+                avg_valid_accuracy = np.mean( valid_accuracies )
 
             if custom_score:
                 avg_custom_score = np.mean(custom_score)
