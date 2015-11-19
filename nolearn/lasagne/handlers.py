@@ -8,6 +8,8 @@ import sys
 import numpy
 from tabulate import tabulate
 
+from lasagne.objectives import squared_error
+
 from .._compat import pickle
 from .util import ansi
 from .util import get_conv_infos
@@ -39,7 +41,7 @@ class PrintLog:
             ('train/val', info['train_loss'] / info['valid_loss']),
             ])
 
-        if not nn.regression:
+        if nn.objective_loss_function is not squared_error:
             info_tabulate['valid acc'] = info['valid_accuracy']
             info_tabulate['train acc'] = info['train_accuracy']
 

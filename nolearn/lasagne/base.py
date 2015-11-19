@@ -533,9 +533,11 @@ class NeuralNet(BaseEstimator):
                     custom_score.append(self.custom_score[1](yb, y_prob))
 
             avg_train_loss = np.mean(train_losses)
-            avg_train_accuracy = np.mean( train_accuracies )
             avg_valid_loss = np.mean(valid_losses)
-            avg_valid_accuracy = np.mean(valid_accuracies)
+            if self.objective_loss_function is not squared_error:
+                avg_train_accuracy = np.mean( train_accuracies )
+                avg_valid_accuracy = np.mean(valid_accuracies)
+
             if custom_score:
                 avg_custom_score = np.mean(custom_score)
 
