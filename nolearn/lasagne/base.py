@@ -257,11 +257,17 @@ class NeuralNet(BaseEstimator):
 
         self.train_history_ = []
 
+
         if 'batch_iterator' in kwargs:  # BBB
             raise ValueError(
                 "The 'batch_iterator' argument has been replaced. "
                 "Use 'batch_iterator_train' and 'batch_iterator_test' instead."
                 )
+    def print_list_of_layers( self ):
+        nameL = []
+        for name, layer in self.layers_.items():
+            nameL.append( name )
+        print nameL
 
     def _check_for_unused_kwargs(self):
         names = self.layers_.keys() + ['update', 'objective']
@@ -400,6 +406,11 @@ class NeuralNet(BaseEstimator):
                 layer = layer_wrapper(layer)
                 self.layers_["LW_%s" % layer_kw['name']] = layer
 
+        if self.layer_weights is not None:
+            print '\nAssure that the weights for each layer are in the correct order!'
+            print 'the order should be:'
+            self.print_list_of_layers()
+            print ''
         return layer
 
     def _create_iter_funcs(self, layers, objective, update, output_type):
@@ -424,7 +435,7 @@ class NeuralNet(BaseEstimator):
 
         all_params = self.get_all_params(trainable=True)
         update_params = self._get_params_for('update')
-        updates = update(loss_train, all_params, **update_params)
+        updates = update(loss_train, all_params, layer_weights=self.layer_weights, **update_params )
 
         input_layers = [layer for layer in layers.values()
                         if isinstance(layer, InputLayer)]
