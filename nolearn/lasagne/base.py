@@ -512,12 +512,12 @@ class NeuralNet(BaseEstimator):
             self.train_history_ else np.inf
             )
         best_train_accuracy = (
-            min([row['train_accuracy'] for row in self.train_history_]) if
-            self.train_history_ else np.inf
+            max([row['train_accuracy'] for row in self.train_history_]) if
+            self.train_history_ else  - np.inf
             )
         best_valid_accuracy = (
-            min([row['valid_accuracy'] for row in self.train_history_]) if
-            self.train_history_ else np.inf
+            max([row['valid_accuracy'] for row in self.train_history_]) if
+            self.train_history_ else - np.inf
             )
         for func in on_training_started:
             func(self, self.train_history_)
