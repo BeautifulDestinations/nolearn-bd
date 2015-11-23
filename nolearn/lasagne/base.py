@@ -137,6 +137,7 @@ def objective(layers,
               loss_function,
               target,
               aggregate=aggregate,
+              mode= 'mean',
               deterministic=False,
               l1=0,
               l2=0,
@@ -146,7 +147,7 @@ def objective(layers,
     output_layer = layers[-1]
     network_output = get_output(
         output_layer, deterministic=deterministic, **get_output_kw)
-    loss = aggregate(loss_function(network_output, target))
+    loss = aggregate(loss_function(network_output, target), mode = mode)
 
     if l1:
         loss += regularization.regularize_layer_params(
@@ -510,6 +511,14 @@ class NeuralNet(BaseEstimator):
             min([row['train_loss'] for row in self.train_history_]) if
             self.train_history_ else np.inf
             )
+        best_train_accuracy = (
+            min([row['train_accuracy'] for row in self.train_history_]) if
+            self.train_history_ else np.inf
+            )
+        best_valid_accuracy = (
+            min([row['valid_accuracy'] for row in self.train_history_]) if
+            self.train_history_ else np.inf
+            )
         for func in on_training_started:
             func(self, self.train_history_)
 
@@ -550,6 +559,7 @@ class NeuralNet(BaseEstimator):
 
             avg_train_loss = np.mean(train_losses)
             avg_valid_loss = np.mean(valid_losses)
+
             if self.objective_loss_function is not squared_error:
                 avg_train_accuracy = np.mean( train_accuracies )
                 avg_valid_accuracy = np.mean( valid_accuracies )
@@ -562,6 +572,11 @@ class NeuralNet(BaseEstimator):
             if avg_valid_loss < best_valid_loss:
                 best_valid_loss = avg_valid_loss
 
+            if avg_train_accuracy > best_train_accuracy:
+                best_train_accuracy = avg_train_accuracy
+            if avg_valid_accuracy > best_valid_accuracy:
+                best_valid_accuracy = avg_valid_accuracy
+
             info = {
                 'epoch': num_epochs_past + epoch,
                 'train_loss': avg_train_loss,
@@ -569,7 +584,9 @@ class NeuralNet(BaseEstimator):
                 'valid_loss': avg_valid_loss,
                 'valid_loss_best': best_valid_loss == avg_valid_loss,
                 'train_accuracy': avg_train_accuracy,
+                'train_acc_best': avg_train_accuracy == best_train_accuracy,
                 'valid_accuracy': avg_valid_accuracy,
+                'valid_acc_best': avg_valid_accuracy == best_valid_accuracy,
                 'dur': time() - t0,
                 }
             if self.custom_score:
