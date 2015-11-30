@@ -41,9 +41,8 @@ class PrintLog:
             ('train/val', info['train_loss'] / info['valid_loss']),
             ])
 
-        if nn.objective_loss_function is not squared_error:
-            info_tabulate['valid acc'] = info['valid_accuracy']
-            info_tabulate['train acc'] = info['train_accuracy']
+        info_tabulate['valid acc'] = info['valid_accuracy']
+        info_tabulate['train acc'] = info['train_accuracy']
 
         if nn.custom_score:
             info_tabulate[nn.custom_score[0]] = info[nn.custom_score[0]]

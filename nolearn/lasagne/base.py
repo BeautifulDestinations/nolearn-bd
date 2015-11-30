@@ -432,7 +432,9 @@ class NeuralNet(BaseEstimator):
             predict = T.where( predict_proba >= 0.5, 1, 0 )
             accuracy = T.mean( T.eq(predict, y_batch) )
         else:
-            accuracy = loss_eval
+            predict = T.where( predict_proba > 0., 1, 0 )
+            label   = T.where( y_batch > 0., 1, 0 )
+            accuracy = T.mean( T.eq( predict, label ) )
 
         all_params = self.get_all_params(trainable=True)
         update_params = self._get_params_for('update')
@@ -560,9 +562,8 @@ class NeuralNet(BaseEstimator):
             avg_train_loss = np.mean(train_losses)
             avg_valid_loss = np.mean(valid_losses)
 
-            if self.objective_loss_function is not squared_error:
-                avg_train_accuracy = np.mean( train_accuracies )
-                avg_valid_accuracy = np.mean( valid_accuracies )
+            avg_train_accuracy = np.mean( train_accuracies )
+            avg_valid_accuracy = np.mean( valid_accuracies )
 
             if custom_score:
                 avg_custom_score = np.mean(custom_score)
