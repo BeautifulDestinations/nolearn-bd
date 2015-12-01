@@ -186,6 +186,8 @@ class NeuralNet(BaseEstimator):
         on_training_finished=None,
         more_params=None,
         layer_weights= None,
+        account_weights=False,
+        fp_accW = 'test',
         verbose=0,
         **kwargs
         ):
@@ -246,6 +248,8 @@ class NeuralNet(BaseEstimator):
         self.on_training_finished = on_training_finished or []
         self.more_params = more_params or {}
         self.layer_weights = layer_weights
+        self.account_weights = account_weights
+        self.fp_accW = fp_accW
         self.verbose = verbose
         if self.verbose:
             # XXX: PrintLog should come before any other handlers,
@@ -528,7 +532,6 @@ class NeuralNet(BaseEstimator):
             func(self, self.train_history_)
 
         num_epochs_past = len(self.train_history_)
-        uniformInit = Uniform()
     
         while epoch < epochs:
             epoch += 1
@@ -542,24 +545,12 @@ class NeuralNet(BaseEstimator):
             t0 = time()
 
 
-            for ik, generator in self.batch_iterator_train( X_train, y_train ):
-                k = int( ik )
-                print k
+            for k, generator in self.batch_iterator_train( X_train, y_train ):
 
-                if 'paramDic' not in locals():
-                    paramDic = {}
-                if os.path.isfile( HOME+'trainedParams/test.pkl' ):
-                    paramDic = pickle.load( open( HOME+'trainedParams/test.pkl', 'r' ) )
+                if self.account_weights:
+                    print k,
+                    self.load_account_weights( k )
 
-                try:
-                    Wval = paramDic[ 2*k ]
-                    bval = paramDic[ 2*k + 1 ]
-                except KeyError:
-                    Wval = uniformInit.sample( np.shape( self.layers_[-1].W.get_value() ) )
-                    bval = uniformInit.sample( np.shape( self.layers_[-1].b.get_value() ) )
-
-                self.layers_[-1].W.set_value( Wval )
-                self.layers_[-1].b.set_value( bval )
                 for Xb, yb in generator:
                     batch_train_loss = self.apply_batch_func(
                         self.train_iter_, Xb, yb)
@@ -572,25 +563,14 @@ class NeuralNet(BaseEstimator):
                     for func in on_batch_finished:
                         func(self, self.train_history_)
 
-                W = self.layers_[-1].W.get_value()#.all()
-                b = self.layers_[-1].b.get_value()#.all()
-                
-                paramDic[ 2*k ] = W
-                paramDic[ 2*k + 1 ] = b
-
-                pickle.dump( paramDic, open(HOME+'trainedParams/test.pkl', 'w' ) )
+                if self.account_weights:
+                    self.save_account_weights( k )
 
 
-            paramDic = pickle.load( open( HOME+'trainedParams/test.pkl', 'r' ) )
-            for ik, generator in self.batch_iterator_test( X_valid, y_valid ):
-                k = int( ik )
-
-                Wval = paramDic[ 2*k ]
-                bval = paramDic[ 2*k+1 ]
-
-                self.layers_[-1].W.set_value( Wval )
-                self.layers_[-1].b.set_value( bval )
-    
+            for k, generator in self.batch_iterator_test( X_valid, y_valid ):
+                if self.account_weights:
+                    self.load_account_weights( k )
+            
                 for Xb, yb in generator:
                     batch_valid_loss, accuracy = self.apply_batch_func(
                         self.eval_iter_, Xb, yb)
@@ -660,14 +640,9 @@ class NeuralNet(BaseEstimator):
         probas = []
         real_probas = []
 
-        paramDic = pickle.load( open( HOME+'trainedParams/test.pkl', 'r' ) )
-        for ik, generator in self.batch_iterator_test( X, y ):
-            k = int( ik )
-
-            Wval = paramDic[ 2*k ]
-            bval = paramDic[ 2*k+1 ]
-            self.layers_[-1].W.set_value( Wval )
-            self.layers_[-1].b.set_value( bval )
+        for k, generator in self.batch_iterator_test( X, y ):
+            if self.account_weights:
+                self.load_account_weights( k )
 
             for Xb, yb in generator:
                 probas.append(self.apply_batch_func(self.predict_iter_, Xb))
@@ -754,6 +729,42 @@ class NeuralNet(BaseEstimator):
         warn("The 'save_weights_to' method will be removed in nolearn 0.6. "
              "Please use 'save_params_to' instead.")
         return self.save_params_to(fname)
+
+    def load_account_weights( self, k ):
+        '''
+        Function to load account specific weights
+        At the moment hard-coded to be only last layer
+        '''
+        if os.path.isfile( HOME+'trainedParams/'+self.fp_accW+'.pkl' ):
+            paramDic = pickle.load( open( HOME+'trainedParams/'+self.fp_accW+'.pkl', 'r' ) )
+        else:
+            paramDic = {}
+        try:
+            Wval = paramDic[ 2*k ]
+            bval = paramDic[ 2*k + 1 ]
+        except KeyError:
+            uniformInit = Uniform()
+            Wval = uniformInit.sample( np.shape( self.layers_[-1].W.get_value() ) )
+            bval = uniformInit.sample( np.shape( self.layers_[-1].b.get_value() ) )
+            print bval
+
+        self.layers_[-1].W.set_value( Wval )
+        self.layers_[-1].b.set_value( bval )
+
+    def save_account_weights( self, k ):
+        '''
+        Function that stores account specific weights
+        '''
+        W = self.layers_[-1].W.get_value()
+        b = self.layers_[-1].b.get_value()
+        
+        if os.path.isfile( HOME+'trainedParams/'+self.fp_accW+'.pkl' ):
+            paramDic = pickle.load( open( HOME+'trainedParams/'+self.fp_accW+'.pkl', 'r' ) )
+        else:
+            paramDic = {}
+        paramDic[ 2*k ] = W
+        paramDic[ 2*k + 1 ] = b
+        pickle.dump( paramDic, open(HOME+'trainedParams/'+self.fp_accW+'.pkl', 'w' ) )
 
     def __getstate__(self):
         state = dict(self.__dict__)
