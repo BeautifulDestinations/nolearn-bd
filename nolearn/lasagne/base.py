@@ -275,7 +275,7 @@ class NeuralNet(BaseEstimator):
         nameL = []
         for name, layer in self.layers_.items():
             nameL.append( name )
-        print nameL
+        print nameL, len( nameL )
 
     def _check_for_unused_kwargs(self):
         names = self.layers_.keys() + ['update', 'objective']
@@ -418,7 +418,9 @@ class NeuralNet(BaseEstimator):
             print '\nAssure that the weights for each layer are in the correct order!'
             print 'the order should be:'
             self.print_list_of_layers()
-            print ''
+            print 'Note that norm and pooling layers do not have any weights related to them.\n'\
+                  'Conv and dense layers have, however, a bias unit plus the weight matrix.\n'\
+                  'In lasagne these count as two independent parametersets.\n'
         return layer
 
     def _create_iter_funcs(self, layers, objective, update, output_type):
@@ -548,7 +550,6 @@ class NeuralNet(BaseEstimator):
             for k, generator in self.batch_iterator_train( X_train, y_train ):
 
                 if self.account_weights:
-                    print k,
                     self.load_account_weights( k )
 
                 for Xb, yb in generator:
@@ -574,7 +575,6 @@ class NeuralNet(BaseEstimator):
                 for Xb, yb in generator:
                     batch_valid_loss, accuracy = self.apply_batch_func(
                         self.eval_iter_, Xb, yb)
-                    print accuracy
                     valid_losses.append(batch_valid_loss)
                     valid_accuracies.append(accuracy)
 
