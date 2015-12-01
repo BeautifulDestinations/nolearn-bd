@@ -7,6 +7,7 @@ from collections import OrderedDict
 import itertools
 from warnings import warn
 from time import time
+import os
 
 from lasagne.layers import get_all_layers
 from lasagne.layers import get_output
@@ -18,6 +19,7 @@ from lasagne.objectives import categorical_crossentropy, binary_crossentropy
 from lasagne.objectives import squared_error
 from lasagne.updates import nesterov_momentum
 from lasagne.utils import unique
+from lasagne.init import Uniform
 import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.cross_validation import KFold
@@ -31,6 +33,7 @@ from theano import tensor as T
 from . import PrintLog
 from . import PrintLayerInfo
 
+HOME = '/home/bd/GitHub/theano-playground/'
 
 class _list(list):
     pass
@@ -71,7 +74,7 @@ class BatchIterator(object):
 
     def __call__(self, X, y=None):
         self.X, self.y = X, y
-        return self
+        return None, self
 
     def __iter__(self):
         bs = self.batch_size
@@ -525,7 +528,8 @@ class NeuralNet(BaseEstimator):
             func(self, self.train_history_)
 
         num_epochs_past = len(self.train_history_)
-
+        uniformInit = Uniform()
+    
         while epoch < epochs:
             epoch += 1
 
@@ -537,27 +541,66 @@ class NeuralNet(BaseEstimator):
 
             t0 = time()
 
-            for Xb, yb in self.batch_iterator_train(X_train, y_train):
-                batch_train_loss = self.apply_batch_func(
-                    self.train_iter_, Xb, yb)
-                train_losses.append(batch_train_loss)
 
-                batch_valid_loss, accuracy = self.apply_batch_func(
-                    self.eval_iter_, Xb, yb)
-                train_accuracies.append(accuracy)
+            for ik, generator in self.batch_iterator_train( X_train, y_train ):
+                k = int( ik )
+                print k
 
-                for func in on_batch_finished:
-                    func(self, self.train_history_)
+                if 'paramDic' not in locals():
+                    paramDic = {}
+                if os.path.isfile( HOME+'trainedParams/test.pkl' ):
+                    paramDic = pickle.load( open( HOME+'trainedParams/test.pkl', 'r' ) )
 
-            for Xb, yb in self.batch_iterator_test(X_valid, y_valid):
-                batch_valid_loss, accuracy = self.apply_batch_func(
-                    self.eval_iter_, Xb, yb)
-                valid_losses.append(batch_valid_loss)
-                valid_accuracies.append(accuracy)
+                try:
+                    Wval = paramDic[ 2*k ]
+                    bval = paramDic[ 2*k + 1 ]
+                except KeyError:
+                    Wval = uniformInit.sample( np.shape( self.layers_[-1].W.get_value() ) )
+                    bval = uniformInit.sample( np.shape( self.layers_[-1].b.get_value() ) )
 
-                if self.custom_score:
-                    y_prob = self.apply_batch_func(self.predict_iter_, Xb)
-                    custom_score.append(self.custom_score[1](yb, y_prob))
+                self.layers_[-1].W.set_value( Wval )
+                self.layers_[-1].b.set_value( bval )
+                for Xb, yb in generator:
+                    batch_train_loss = self.apply_batch_func(
+                        self.train_iter_, Xb, yb)
+                    train_losses.append(batch_train_loss)
+
+                    batch_valid_loss, accuracy = self.apply_batch_func(
+                        self.eval_iter_, Xb, yb)
+                    train_accuracies.append(accuracy)
+    
+                    for func in on_batch_finished:
+                        func(self, self.train_history_)
+
+                W = self.layers_[-1].W.get_value()#.all()
+                b = self.layers_[-1].b.get_value()#.all()
+                
+                paramDic[ 2*k ] = W
+                paramDic[ 2*k + 1 ] = b
+
+                pickle.dump( paramDic, open(HOME+'trainedParams/test.pkl', 'w' ) )
+
+
+            paramDic = pickle.load( open( HOME+'trainedParams/test.pkl', 'r' ) )
+            for ik, generator in self.batch_iterator_test( X_valid, y_valid ):
+                k = int( ik )
+
+                Wval = paramDic[ 2*k ]
+                bval = paramDic[ 2*k+1 ]
+
+                self.layers_[-1].W.set_value( Wval )
+                self.layers_[-1].b.set_value( bval )
+    
+                for Xb, yb in generator:
+                    batch_valid_loss, accuracy = self.apply_batch_func(
+                        self.eval_iter_, Xb, yb)
+                    print accuracy
+                    valid_losses.append(batch_valid_loss)
+                    valid_accuracies.append(accuracy)
+
+                    if self.custom_score:
+                        y_prob = self.apply_batch_func(self.predict_iter_, Xb)
+                        custom_score.append(self.custom_score[1](yb, y_prob))
 
             avg_train_loss = np.mean(train_losses)
             avg_valid_loss = np.mean(valid_losses)
@@ -613,20 +656,32 @@ class NeuralNet(BaseEstimator):
         else:
             return func(Xb) if yb is None else func(Xb, yb)
 
-    def predict_proba(self, X):
+    def predict_proba(self, X, y=None):
         probas = []
-        for Xb, yb in self.batch_iterator_test(X):
-            probas.append(self.apply_batch_func(self.predict_iter_, Xb))
-        return np.vstack(probas)
+        real_probas = []
 
-    def predict(self, X):
+        paramDic = pickle.load( open( HOME+'trainedParams/test.pkl', 'r' ) )
+        for ik, generator in self.batch_iterator_test( X, y ):
+            k = int( ik )
+
+            Wval = paramDic[ 2*k ]
+            bval = paramDic[ 2*k+1 ]
+            self.layers_[-1].W.set_value( Wval )
+            self.layers_[-1].b.set_value( bval )
+
+            for Xb, yb in generator:
+                probas.append(self.apply_batch_func(self.predict_iter_, Xb))
+                real_probas.append( yb )
+        return np.vstack(probas),  real_probas 
+
+    def predict(self, X, y=None):
         if self.regression:
-            return self.predict_proba(X)
+            return self.predict_proba(X,y)
         else:
-            y_pred = np.argmax(self.predict_proba(X), axis=1)
+            y_pred, y_real = np.argmax(self.predict_proba(X,y), axis=1)
             if self.use_label_encoder:
                 y_pred = self.enc_.inverse_transform(y_pred)
-            return y_pred
+            return y_pred, y_real
 
     def score(self, X, y):
         score = mean_squared_error if self.regression else accuracy_score
