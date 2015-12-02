@@ -53,20 +53,23 @@ class PrintLog:
             [info_tabulate], headers="keys", floatfmt='.5f')
 
         out = ""
+        fname='trainedParams/'+str(nn.identifier[0])+'_tracker.csv'
         if self.first_iteration:
             out = "\n".join(tabulated.split('\n', 2)[:2])
             out += "\n"
             self.first_iteration = False
 
-            f = open( 'tracker.csv', 'w' )
-            f.write( 'train_loss,valid_loss,train_accuracy,valid_accuracy\n')
+            f = open( fname, 'w' )
+            f.write( 'train_loss,valid_loss,train/val,train_accuracy,valid_accuracy,dur\n')
             f.close()
 
-        f = open( 'tracker.csv', 'a' )
-        f.write( str(info['train_loss'])+','+\
-                 str(info['valid_loss'])+','+\
-                 str(info['train_accuracy'])+','+\
-                 str(info['valid_accuracy'])+'\n' )
+        f = open( fname, 'a' )
+        f.write( str(round( info['train_loss'], 4))+','+\
+                 str(round( info['valid_loss'], 4))+','+\
+                 str(round( info['train_loss']/info['valid_loss'], 3))+','+\
+                 str(round( info['train_accuracy'], 3))+','+\
+                 str(round( info['valid_accuracy'], 3))+','+\
+                 str(round( info['dur'], 3))+'\n')
         f.close()
 
         out += tabulated.rsplit('\n', 1)[-1]

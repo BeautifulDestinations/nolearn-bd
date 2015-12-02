@@ -189,6 +189,7 @@ class NeuralNet(BaseEstimator):
         account_weights=False,
         fp_accW = 'test',
         verbose=0,
+        identifier='test',
         **kwargs
         ):
         if loss is not None:
@@ -251,6 +252,7 @@ class NeuralNet(BaseEstimator):
         self.account_weights = account_weights
         self.fp_accW = fp_accW
         self.verbose = verbose
+        self.identifier = identifier,
         if self.verbose:
             # XXX: PrintLog should come before any other handlers,
             # because early stopping will otherwise cause the last
@@ -274,8 +276,14 @@ class NeuralNet(BaseEstimator):
     def print_list_of_layers( self ):
         nameL = []
         for name, layer in self.layers_.items():
-            nameL.append( name )
-        print nameL, len( nameL )
+            NORML = 'norm' in name
+            POOLL = 'pool' in name
+            INL   = 'input' in name
+            DROPL = 'drop' in name
+            if not NORML and not POOLL and not INL and not DROPL:
+                nameL.append( name )
+        print nameL
+        print 'You need {} layer_weights\n'.format( 2 * len(nameL) )
 
     def _check_for_unused_kwargs(self):
         names = self.layers_.keys() + ['update', 'objective']
@@ -746,7 +754,6 @@ class NeuralNet(BaseEstimator):
             uniformInit = Uniform()
             Wval = uniformInit.sample( np.shape( self.layers_[-1].W.get_value() ) )
             bval = uniformInit.sample( np.shape( self.layers_[-1].b.get_value() ) )
-            print bval
 
         self.layers_[-1].W.set_value( Wval )
         self.layers_[-1].b.set_value( bval )
