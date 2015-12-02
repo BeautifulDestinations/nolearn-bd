@@ -33,7 +33,7 @@ from theano import tensor as T
 from . import PrintLog
 from . import PrintLayerInfo
 
-HOME = '/home/bd/GitHub/theano-playground/'
+HOME = '/home/philipp/GitHub/theano-playground/'
 
 class _list(list):
     pass
@@ -548,7 +548,6 @@ class NeuralNet(BaseEstimator):
             for k, generator in self.batch_iterator_train( X_train, y_train ):
 
                 if self.account_weights:
-                    print k,
                     self.load_account_weights( k )
 
                 for Xb, yb in generator:
@@ -574,7 +573,6 @@ class NeuralNet(BaseEstimator):
                 for Xb, yb in generator:
                     batch_valid_loss, accuracy = self.apply_batch_func(
                         self.eval_iter_, Xb, yb)
-                    print accuracy
                     valid_losses.append(batch_valid_loss)
                     valid_accuracies.append(accuracy)
 
@@ -746,7 +744,6 @@ class NeuralNet(BaseEstimator):
             uniformInit = Uniform()
             Wval = uniformInit.sample( np.shape( self.layers_[-1].W.get_value() ) )
             bval = uniformInit.sample( np.shape( self.layers_[-1].b.get_value() ) )
-            print bval
 
         self.layers_[-1].W.set_value( Wval )
         self.layers_[-1].b.set_value( bval )
