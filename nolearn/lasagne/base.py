@@ -189,6 +189,7 @@ class NeuralNet(BaseEstimator):
         account_weights=False,
         fp_accW = 'test',
         verbose=0,
+        identifier='test',
         **kwargs
         ):
         if loss is not None:
@@ -251,6 +252,7 @@ class NeuralNet(BaseEstimator):
         self.account_weights = account_weights
         self.fp_accW = fp_accW
         self.verbose = verbose
+        self.identifier = identifier,
         if self.verbose:
             # XXX: PrintLog should come before any other handlers,
             # because early stopping will otherwise cause the last
@@ -274,8 +276,14 @@ class NeuralNet(BaseEstimator):
     def print_list_of_layers( self ):
         nameL = []
         for name, layer in self.layers_.items():
-            nameL.append( name )
+            NORML = 'norm' in name
+            POOLL = 'pool' in name
+            INL   = 'input' in name
+            DROPL = 'drop' in name
+            if not NORML and not POOLL and not INL and not DROPL:
+                nameL.append( name )
         print nameL
+        print 'You need {} layer_weights\n'.format( 2 * len(nameL) )
 
     def _check_for_unused_kwargs(self):
         names = self.layers_.keys() + ['update', 'objective']
@@ -418,7 +426,9 @@ class NeuralNet(BaseEstimator):
             print '\nAssure that the weights for each layer are in the correct order!'
             print 'the order should be:'
             self.print_list_of_layers()
-            print ''
+            print 'Note that norm and pooling layers do not have any weights related to them.\n'\
+                  'Conv and dense layers have, however, a bias unit plus the weight matrix.\n'\
+                  'In lasagne these count as two independent parametersets.\n'
         return layer
 
     def _create_iter_funcs(self, layers, objective, update, output_type):
