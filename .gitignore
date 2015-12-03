@@ -9,4 +9,6 @@ include/
 lib/
 local
 
+*global_var.py
+
 *pyc
