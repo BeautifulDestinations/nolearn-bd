@@ -33,7 +33,7 @@ from theano import tensor as T
 from . import PrintLog
 from . import PrintLayerInfo
 
-HOME = '/home/bd/GitHub/theano-playground/'
+from global_var import HOME
 
 class _list(list):
     pass
@@ -654,16 +654,18 @@ class NeuralNet(BaseEstimator):
 
             for Xb, yb in generator:
                 probas.append(self.apply_batch_func(self.predict_iter_, Xb))
+                yb = np.reshape( yb, ( len(yb),1 ) )
                 real_probas.append( yb )
-        return np.vstack(probas),  real_probas 
+        return np.vstack( probas ),  np.vstack(real_probas)[:,0]
 
     def predict(self, X, y=None):
+        y_pred, y_real = self.predict_proba(X,y)
         if self.regression:
-            return self.predict_proba(X,y)
+            return y_pred, y_real
         else:
-            y_pred, y_real = np.argmax(self.predict_proba(X,y), axis=1)
+            y_pred = np.argmax( y_pred, axis = 1 )
             if self.use_label_encoder:
-                y_pred = self.enc_.inverse_transform(y_pred)
+                y_pred = self.enc_.inverse_transform( y_pred )
             return y_pred, y_real
 
     def score(self, X, y):
