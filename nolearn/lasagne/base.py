@@ -144,6 +144,8 @@ def objective(layers,
               deterministic=False,
               l1=0,
               l2=0,
+              l3=0,
+              l3_layers=[],
               get_output_kw=None):
     if get_output_kw is None:
         get_output_kw = {}
@@ -158,6 +160,10 @@ def objective(layers,
     if l2:
         loss += regularization.regularize_layer_params(
             layers.values(), regularization.l2) * l2
+    if l3:
+        for layer in l3_layers:
+            loss += regularization.regularize_layer_params(
+                layer, regularization.l2) * l3
     return loss
 
 
@@ -189,6 +195,7 @@ class NeuralNet(BaseEstimator):
         account_weights=False,
         accW_layers = [],
         fp_accW = 'test',
+        l3_layers = [],
         verbose=0,
         identifier='test',
         **kwargs
@@ -253,6 +260,7 @@ class NeuralNet(BaseEstimator):
         self.account_weights = account_weights
         self.account_weight_layers = accW_layers
         self.fp_accW = fp_accW
+        self.l3_layers = l3_layers
         self.verbose = verbose
         self.identifier = identifier,
         if self.verbose:
@@ -439,8 +447,12 @@ class NeuralNet(BaseEstimator):
         output_layer = layers[-1]
         objective_kw = self._get_params_for('objective')
 
+        l3Layers = []
+        for l3_name in self.l3_layers:
+            l3Layers.append( layers[ l3_name ] )
+
         loss_train = objective(
-            layers, target=y_batch, **objective_kw)
+            layers, target=y_batch, l3_layers=l3Layers, **objective_kw)
         loss_eval = objective(
             layers, target=y_batch, deterministic=True, **objective_kw)
         predict_proba = get_output(output_layer, None, deterministic=True)
