@@ -187,6 +187,7 @@ class NeuralNet(BaseEstimator):
         more_params=None,
         layer_weights= None,
         account_weights=False,
+        accW_layers = [],
         fp_accW = 'test',
         verbose=0,
         identifier='test',
@@ -250,6 +251,7 @@ class NeuralNet(BaseEstimator):
         self.more_params = more_params or {}
         self.layer_weights = layer_weights
         self.account_weights = account_weights
+        self.account_weight_layers = accW_layers
         self.fp_accW = fp_accW
         self.verbose = verbose
         self.identifier = identifier,
@@ -558,7 +560,7 @@ class NeuralNet(BaseEstimator):
             for k, generator in self.batch_iterator_train( X_train, y_train ):
 
                 if self.account_weights:
-                    self.load_account_weights( k )
+                    self.load_account_weights( k, self.account_weight_layers )
 
                 for Xb, yb in generator:
                     batch_train_loss = self.apply_batch_func(
@@ -573,12 +575,12 @@ class NeuralNet(BaseEstimator):
                         func(self, self.train_history_)
 
                 if self.account_weights:
-                    self.save_account_weights( k )
+                    self.save_account_weights( k, self.account_weight_layers )
 
 
             for k, generator in self.batch_iterator_test( X_valid, y_valid ):
                 if self.account_weights:
-                    self.load_account_weights( k )
+                    self.load_account_weights( k, self.account_weight_layers)
             
                 for Xb, yb in generator:
                     batch_valid_loss, accuracy = self.apply_batch_func(
@@ -650,7 +652,7 @@ class NeuralNet(BaseEstimator):
 
         for k, generator in self.batch_iterator_test( X, y ):
             if self.account_weights:
-                self.load_account_weights( k )
+                self.load_account_weights( k, self.account_weight_layers )
 
             for Xb, yb in generator:
                 probas.append(self.apply_batch_func(self.predict_iter_, Xb))
@@ -740,7 +742,7 @@ class NeuralNet(BaseEstimator):
              "Please use 'save_params_to' instead.")
         return self.save_params_to(fname)
 
-    def load_account_weights( self, k ):
+    def load_account_weights( self, k, layerL ):
         '''
         Function to load account specific weights
         At the moment hard-coded to be only last layer
@@ -749,31 +751,33 @@ class NeuralNet(BaseEstimator):
             paramDic = pickle.load( open( HOME+'trainedParams/'+self.fp_accW+'.pkl', 'r' ) )
         else:
             paramDic = {}
-        try:
-            Wval = paramDic[ 2*k ]
-            bval = paramDic[ 2*k + 1 ]
-        except KeyError:
-            uniformInit = Uniform()
-            Wval = uniformInit.sample( np.shape( self.layers_[-1].W.get_value() ) )
-            bval = uniformInit.sample( np.shape( self.layers_[-1].b.get_value() ) )
+        for name in layerL:
+            try:
+                Wval = paramDic[ str(k)+name ]
+                bval = paramDic[ str(k)+name+'_b' ]
+            except KeyError:
+                uniformInit = Uniform()
+                Wval = uniformInit.sample( np.shape( self.layers_[ name ].W.get_value() ) )
+                bval = uniformInit.sample( np.shape( self.layers_[ name ].b.get_value() ) )
+    
+            self.layers_[ name ].W.set_value( Wval )
+            self.layers_[ name ].b.set_value( bval )
 
-        self.layers_[-1].W.set_value( Wval )
-        self.layers_[-1].b.set_value( bval )
-
-    def save_account_weights( self, k ):
+    def save_account_weights( self, k, layerL ):
         '''
         Function that stores account specific weights
         '''
-        W = self.layers_[-1].W.get_value()
-        b = self.layers_[-1].b.get_value()
-        
-        if os.path.isfile( HOME+'trainedParams/'+self.fp_accW+'.pkl' ):
-            paramDic = pickle.load( open( HOME+'trainedParams/'+self.fp_accW+'.pkl', 'r' ) )
-        else:
-            paramDic = {}
-        paramDic[ 2*k ] = W
-        paramDic[ 2*k + 1 ] = b
-        pickle.dump( paramDic, open(HOME+'trainedParams/'+self.fp_accW+'.pkl', 'w' ) )
+        for name in layerL:
+            W = self.layers_[ name ].W.get_value()
+            b = self.layers_[ name ].b.get_value()
+            
+            if os.path.isfile( HOME+'trainedParams/'+self.fp_accW+'.pkl' ):
+                paramDic = pickle.load( open( HOME+'trainedParams/'+self.fp_accW+'.pkl', 'r' ) )
+            else:
+                paramDic = {}
+            paramDic[ str(k)+name ] = W
+            paramDic[ str(k)+name+'_b' ] = b
+            pickle.dump( paramDic, open(HOME+'trainedParams/'+self.fp_accW+'.pkl', 'w' ) )
 
     def __getstate__(self):
         state = dict(self.__dict__)
