@@ -662,7 +662,6 @@ class NeuralNet(BaseEstimator):
     def predict_proba(self, X, y=None):
         probas = []
         real_probas = []
-        X_reordered = []
 
         for k, generator in self.batch_iterator_test( X, y ):
             if self.account_weights:
@@ -672,18 +671,17 @@ class NeuralNet(BaseEstimator):
                 probas.append(self.apply_batch_func(self.predict_iter_, Xb))
                 yb = np.reshape( yb, ( len(yb),1 ) )
                 real_probas.append( yb )
-                X_reordered.append( Xb )
-        return np.vstack( probas ),  np.vstack(real_probas)[:,0], X_reordered
+        return np.vstack( probas ),  np.vstack(real_probas)[:,0]
 
     def predict(self, X, y=None):
-        y_pred, y_real, X_reordered = self.predict_proba(X,y)
+        y_pred, y_real = self.predict_proba(X,y)
         if self.regression:
-            return y_pred, y_real, X_reordered
+            return y_pred, y_real
         else:
             y_pred = np.argmax( y_pred, axis = 1 )
             if self.use_label_encoder:
                 y_pred = self.enc_.inverse_transform( y_pred )
-            return y_pred, y_real, X_reordered
+            return y_pred, y_real
 
     def score(self, X, y):
         score = mean_squared_error if self.regression else accuracy_score
