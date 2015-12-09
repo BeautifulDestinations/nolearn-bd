@@ -570,7 +570,6 @@ class NeuralNet(BaseEstimator):
 
 
             for k, generator in self.batch_iterator_train( X_train, y_train ):
-
                 if self.account_weights:
                     self.load_account_weights( k, self.account_weight_layers )
 
@@ -588,7 +587,6 @@ class NeuralNet(BaseEstimator):
 
                 if self.account_weights:
                     self.save_account_weights( k, self.account_weight_layers )
-
 
             for k, generator in self.batch_iterator_test( X_valid, y_valid ):
                 if self.account_weights:
@@ -662,8 +660,10 @@ class NeuralNet(BaseEstimator):
     def predict_proba(self, X, y=None):
         probas = []
         real_probas = []
+        X_reordered = []
 
         for k, generator in self.batch_iterator_test( X, y ):
+            X_reordered.append( generator.X )
             if self.account_weights:
                 self.load_account_weights( k, self.account_weight_layers )
 
@@ -671,17 +671,18 @@ class NeuralNet(BaseEstimator):
                 probas.append(self.apply_batch_func(self.predict_iter_, Xb))
                 yb = np.reshape( yb, ( len(yb),1 ) )
                 real_probas.append( yb )
-        return np.vstack( probas ),  np.vstack(real_probas)[:,0]
+        X_reordered = [ val for arr in X_reordered for val in arr ]
+        return np.vstack( probas ),  np.vstack(real_probas)[:,0], X_reordered
 
     def predict(self, X, y=None):
-        y_pred, y_real = self.predict_proba(X,y)
+        y_pred, y_real, X_reordered = self.predict_proba(X,y)
         if self.regression:
-            return y_pred, y_real
+            return y_pred, y_real, X_reordered
         else:
             y_pred = np.argmax( y_pred, axis = 1 )
             if self.use_label_encoder:
                 y_pred = self.enc_.inverse_transform( y_pred )
-            return y_pred, y_real
+            return y_pred, y_real, X_reordered
 
     def score(self, X, y):
         score = mean_squared_error if self.regression else accuracy_score
