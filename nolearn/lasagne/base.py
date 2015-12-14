@@ -759,12 +759,13 @@ class NeuralNet(BaseEstimator):
     def load_account_weights( self, k, layerL ):
         '''
         Function to load account specific weights
-        At the moment hard-coded to be only last layer
         '''
-        if os.path.isfile( HOME+'trainedParams/'+self.fp_accW+'.pkl' ):
-            paramDic = pickle.load( open( HOME+'trainedParams/'+self.fp_accW+'.pkl', 'r' ) )
+        fpath = HOME+'trainedParams/'+self.fp_accW+'.pkl'
+        if os.path.isfile( fpath ):
+            paramDic = pickle.load( open( fpath, 'r' ) )
         else:
             paramDic = {}
+
         for name in layerL:
             try:
                 Wval = paramDic[ str(k)+name ]
@@ -781,17 +782,21 @@ class NeuralNet(BaseEstimator):
         '''
         Function that stores account specific weights
         '''
+        fpath = HOME+'trainedParams/'+self.fp_accW+'.pkl'
+
+        if os.path.isfile( fpath ):
+            paramDic = pickle.load( open( fpath, 'r' ) )
+        else:
+            paramDic = {}
+            
         for name in layerL:
             W = self.layers_[ name ].W.get_value()
-            b = self.layers_[ name ].b.get_value()
-            
-            if os.path.isfile( HOME+'trainedParams/'+self.fp_accW+'.pkl' ):
-                paramDic = pickle.load( open( HOME+'trainedParams/'+self.fp_accW+'.pkl', 'r' ) )
-            else:
-                paramDic = {}
+            b = self.layers_[ name ].b.get_value()           
+
             paramDic[ str(k)+name ] = W
             paramDic[ str(k)+name+'_b' ] = b
-            pickle.dump( paramDic, open(HOME+'trainedParams/'+self.fp_accW+'.pkl', 'w' ) )
+
+        pickle.dump( paramDic, open(fpath, 'w' ) )
 
     def __getstate__(self):
         state = dict(self.__dict__)
