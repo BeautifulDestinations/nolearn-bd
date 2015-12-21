@@ -456,6 +456,7 @@ class NeuralNet(BaseEstimator):
         loss_eval = objective(
             layers, target=y_batch, deterministic=True, **objective_kw)
         predict_proba = get_output(output_layer, None, deterministic=True)
+
         if not self.regression:
             predict = predict_proba.argmax(axis=1)
             accuracy = T.mean(T.eq(predict, y_batch))
@@ -569,7 +570,7 @@ class NeuralNet(BaseEstimator):
             t0 = time()
 
 
-            for k, generator in self.batch_iterator_train( X_train, y_train ):
+            for k, generator, dummy in self.batch_iterator_train( X_train, y_train ):
                 if self.account_weights:
                     self.load_account_weights( k, self.account_weight_layers )
 
@@ -588,7 +589,7 @@ class NeuralNet(BaseEstimator):
                 if self.account_weights:
                     self.save_account_weights( k, self.account_weight_layers )
 
-            for k, generator in self.batch_iterator_test( X_valid, y_valid ):
+            for k, generator, dummy in self.batch_iterator_test( X_valid, y_valid ):
                 if self.account_weights:
                     self.load_account_weights( k, self.account_weight_layers)
             
@@ -601,7 +602,6 @@ class NeuralNet(BaseEstimator):
                     if self.custom_score:
                         y_prob = self.apply_batch_func(self.predict_iter_, Xb)
                         custom_score.append(self.custom_score[1](yb, y_prob))
-
 
             avg_train_loss = np.mean(train_losses)
             avg_valid_loss = np.mean(valid_losses)
@@ -657,13 +657,15 @@ class NeuralNet(BaseEstimator):
         else:
             return func(Xb) if yb is None else func(Xb, yb)
 
-    def predict_proba(self, X, y=None):
+    def predict_proba(self, X, y=None, t=None):
         probas = []
         real_probas = []
         X_reordered = []
+        t_reordered = []
 
-        for k, generator in self.batch_iterator_test( X, y ):
+        for k, generator, tval in self.batch_iterator_test( X, y, t ):
             X_reordered.append( generator.X )
+            t_reordered.append( tval ) 
             if self.account_weights:
                 self.load_account_weights( k, self.account_weight_layers )
 
@@ -672,17 +674,19 @@ class NeuralNet(BaseEstimator):
                 yb = np.reshape( yb, ( len(yb),1 ) )
                 real_probas.append( yb )
         X_reordered = [ val for arr in X_reordered for val in arr ]
-        return np.vstack( probas ),  np.vstack(real_probas)[:,0], X_reordered
+        if t_reordered[0] is not None:
+            t_reordered = np.asarray( [ val for arr in t_reordered for val in arr ] )
+        return np.vstack( probas ),  np.vstack(real_probas)[:,0], X_reordered, t_reordered
 
-    def predict(self, X, y=None):
-        y_pred, y_real, X_reordered = self.predict_proba(X,y)
+    def predict(self, X, y=None, t=None):
+        y_pred, y_real, X_reordered, t_reordered = self.predict_proba(X,y,t)
         if self.regression:
-            return y_pred, y_real, X_reordered
+            return y_pred, y_real, X_reordered, t_reordered
         else:
             y_pred = np.argmax( y_pred, axis = 1 )
             if self.use_label_encoder:
                 y_pred = self.enc_.inverse_transform( y_pred )
-            return y_pred, y_real, X_reordered
+            return y_pred, y_real, X_reordered, t_reordered
 
     def score(self, X, y):
         score = mean_squared_error if self.regression else accuracy_score
@@ -768,8 +772,9 @@ class NeuralNet(BaseEstimator):
 
         for name in layerL:
             try:
-                Wval = paramDic[ str(k)+name ]
-                bval = paramDic[ str(k)+name+'_b' ]
+                Wval = paramDic[ str(k)+name ].astype( np.float32 )
+                bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
+
             except KeyError:
                 uniformInit = Uniform()
                 Wval = uniformInit.sample( np.shape( self.layers_[ name ].W.get_value() ) )
