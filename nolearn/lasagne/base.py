@@ -33,7 +33,7 @@ from theano import tensor as T
 from . import PrintLog
 from . import PrintLayerInfo
 
-from .global_var import HOME
+from .nolearn_global_var import HOMEe
 
 class _list(list):
     pass
