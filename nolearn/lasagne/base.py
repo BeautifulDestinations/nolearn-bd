@@ -670,11 +670,19 @@ class NeuralNet(BaseEstimator):
 
             for Xb, yb in generator:
                 probas.append(self.apply_batch_func(self.predict_iter_, Xb))
-                yb = np.reshape( yb, ( len(yb),1 ) )
+
+                try:
+                    yb = np.reshape( yb, ( len(yb),1 ) )
+                except TypeError:
+                    pass
+
                 real_probas.append( yb )
         X_reordered = [ val for arr in X_reordered for val in arr ]
-        if l_reordered[0] is not None:
-            l_reordered = np.asarray( [ val for arr in l_reordered for val in arr ], dtype=np.int32 )
+        if len( l_reordered ) == 0:
+            return probas, None, None, None
+        elif l_reordered[0] is not None:
+            l_reordered = np.asarray( [ val for arr in l_reordered for val in arr ], \
+                                        dtype=np.int32 )
         return np.vstack( probas ),  np.vstack(real_probas)[:,0], X_reordered, l_reordered
 
     def predict(self, X, y=None, l=None):
