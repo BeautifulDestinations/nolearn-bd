@@ -38,7 +38,6 @@ from .global_var import HOME
 class _list(list):
     pass
 
-
 class _dict(dict):
     def __contains__(self, key):
         return True
@@ -657,15 +656,15 @@ class NeuralNet(BaseEstimator):
         else:
             return func(Xb) if yb is None else func(Xb, yb)
 
-    def predict_proba(self, X, y=None, t=None):
+    def predict_proba(self, X, y=None, l=None):
         probas = []
         real_probas = []
         X_reordered = []
-        t_reordered = []
+        l_reordered = []
 
-        for k, generator, tval in self.batch_iterator_test( X, y, t ):
+        for k, generator, lval in self.batch_iterator_test( X, y, l ):
             X_reordered.append( generator.X )
-            t_reordered.append( tval ) 
+            l_reordered.append( lval ) 
             if self.account_weights:
                 self.load_account_weights( k, self.account_weight_layers )
 
@@ -674,19 +673,19 @@ class NeuralNet(BaseEstimator):
                 yb = np.reshape( yb, ( len(yb),1 ) )
                 real_probas.append( yb )
         X_reordered = [ val for arr in X_reordered for val in arr ]
-        if t_reordered[0] is not None:
-            t_reordered = np.asarray( [ val for arr in t_reordered for val in arr ] )
-        return np.vstack( probas ),  np.vstack(real_probas)[:,0], X_reordered, t_reordered
+        if l_reordered[0] is not None:
+            l_reordered = np.asarray( [ val for arr in l_reordered for val in arr ], dtype=np.int32 )
+        return np.vstack( probas ),  np.vstack(real_probas)[:,0], X_reordered, l_reordered
 
-    def predict(self, X, y=None, t=None):
-        y_pred, y_real, X_reordered, t_reordered = self.predict_proba(X,y,t)
+    def predict(self, X, y=None, l=None):
+        y_pred, y_real, X_reordered, l_reordered = self.predict_proba(X,y,l)
         if self.regression:
-            return y_pred, y_real, X_reordered, t_reordered
+            return y_pred, y_real, X_reordered, l_reordered
         else:
             y_pred = np.argmax( y_pred, axis = 1 )
             if self.use_label_encoder:
                 y_pred = self.enc_.inverse_transform( y_pred )
-            return y_pred, y_real, X_reordered, t_reordered
+            return y_pred, y_real, X_reordered, l_reordered
 
     def score(self, X, y):
         score = mean_squared_error if self.regression else accuracy_score
@@ -772,10 +771,13 @@ class NeuralNet(BaseEstimator):
 
         for name in layerL:
             try:
-                Wval = paramDic[ str(k)+name ].astype( np.float32 )
-                bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
+                    Wval = paramDic[ str(k)+name ].astype( np.float32 )
+                    bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
+                    if len( np.shape( bval ) ) == 0:
+                        bval = np.reshape( bval, (1,) )
 
             except KeyError:
+                print 'Key Error: init weights!'
                 uniformInit = Uniform()
                 Wval = uniformInit.sample( np.shape( self.layers_[ name ].W.get_value() ) )
                 bval = uniformInit.sample( np.shape( self.layers_[ name ].b.get_value() ) )
