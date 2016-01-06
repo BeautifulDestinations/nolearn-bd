@@ -197,6 +197,7 @@ class NeuralNet(BaseEstimator):
         l3_layers = [],
         verbose=0,
         identifier='test',
+        netname = '',
         **kwargs
         ):
         if loss is not None:
@@ -261,7 +262,8 @@ class NeuralNet(BaseEstimator):
         self.fp_accW = fp_accW
         self.l3_layers = l3_layers
         self.verbose = verbose
-        self.identifier = identifier,
+        self.identifier = identifier
+        self.netname = netname
         if self.verbose:
             # XXX: PrintLog should come before any other handlers,
             # because early stopping will otherwise cause the last
