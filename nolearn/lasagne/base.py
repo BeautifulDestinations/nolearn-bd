@@ -781,13 +781,13 @@ class NeuralNet(BaseEstimator):
 
         for name in layerL:
             try:
-                    Wval = paramDic[ str(k)+name ].astype( np.float32 )
-                    bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
-                    if len( np.shape( bval ) ) == 0:
-                        bval = np.reshape( bval, (1,) )
+                Wval = paramDic[ str(k)+name ].astype( np.float32 )
+                bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
+                if len( np.shape( bval ) ) == 0:
+                    bval = np.reshape( bval, (1,) )
 
             except KeyError:
-                print 'Key Error: init weights!'
+                print k, 'Key Error: init weights!'
                 uniformInit = Uniform()
                 Wval = uniformInit.sample( np.shape( self.layers_[ name ].W.get_value() ) )
                 bval = uniformInit.sample( np.shape( self.layers_[ name ].b.get_value() ) )
