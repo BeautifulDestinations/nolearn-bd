@@ -570,7 +570,7 @@ class NeuralNet(BaseEstimator):
 
             t0 = time()
 
-            for k, Xb, yb in self.batch_iterator_train( X_train, y_train ):
+            for k, fpaths, Xb, yb in self.batch_iterator_train( X_train, y_train ):
                 if self.account_weights:
                     self.load_account_weights( k, self.account_weight_layers )
 
@@ -581,14 +581,14 @@ class NeuralNet(BaseEstimator):
                 batch_valid_loss, accuracy = self.apply_batch_func(
                     self.eval_iter_, Xb, yb)
                 train_accuracies.append(accuracy)
-    
+   
                 for func in on_batch_finished:
                     func(self, self.train_history_)
 
                 if self.account_weights:
                     self.save_account_weights( k, self.account_weight_layers )
 
-            for k, Xb, yb in self.batch_iterator_train( X_valid, y_valid ):
+            for k, fpaths, Xb, yb in self.batch_iterator_train( X_valid, y_valid ):
                 if self.account_weights:
                     self.load_account_weights( k, self.account_weight_layers)
             
@@ -661,8 +661,8 @@ class NeuralNet(BaseEstimator):
         X_reordered = []
         y_reordered = []
 
-        for k, Xb, yb in self.batch_iterator_test( X, y ):
-            X_reordered.append( Xb )
+        for k, fpaths, Xb, yb in self.batch_iterator_test( X, y ):
+            X_reordered.append( fpaths )
             if self.account_weights:
                 self.load_account_weights( k, self.account_weight_layers )
 
@@ -672,21 +672,21 @@ class NeuralNet(BaseEstimator):
                 yb = np.reshape( yb, ( len(yb),1 ) )
             except TypeError:
                 pass
-
             y_reordered.append( yb )
+
         X_reordered = [ val for arr in X_reordered for val in arr ]
         return np.vstack( probas ),  np.vstack(y_reordered)[:,0], X_reordered
 
 
     def predict(self, X, y=None):
-        y_pred, y_real, X_reordered = self.predict_proba(X,y,l)
+        y_pred, y_reordered, X_reordered = self.predict_proba(X,y)
         if self.regression:
-            return y_pred, y_real, X_reordered, l_reordered
+            return y_pred, y_reordered, X_reordered
         else:
             y_pred = np.argmax( y_pred, axis = 1 )
             if self.use_label_encoder:
                 y_pred = self.enc_.inverse_transform( y_pred )
-            return y_pred, y_real, X_reordered
+            return y_pred, y_reordered, X_reordered
 
     def score(self, X, y):
         score = mean_squared_error if self.regression else accuracy_score
@@ -767,25 +767,22 @@ class NeuralNet(BaseEstimator):
         '''
         Function to load account specific weights
         '''
-        fpath = HOME+'trainedParams/'+self.fp_accW+'.pkl'
-        if os.path.isfile( fpath ):
-            paramDic = pickle.load( open( fpath, 'r' ) )
-        else:
-            paramDic = {}
-
+        fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
         for name in layerL:
-            try:
-                
-                Wval = paramDic[ str(k)+name ].astype( np.float32 )
-                bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
-                if len( np.shape( bval ) ) == 0:
-                    bval = np.reshape( bval, (1,) )
-
-            except KeyError:
+            if os.path.isfile( fpath ):
+                with open( fpath, 'r' ) as f:
+                    paramDic = pickle.load( f )
+                    Wval = paramDic[ str(k)+name ].astype( np.float32 )
+                    bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
+                    if len( np.shape( bval ) ) == 0:
+                        bval = np.reshape( bval, (1,) )
+            else:
+                print 'init weights: ', k
+                paramDic = {}
                 uniformInit = Uniform()
                 Wval = uniformInit.sample( np.shape( self.layers_[ name ].W.get_value() ) )
                 bval = uniformInit.sample( np.shape( self.layers_[ name ].b.get_value() ) )
-    
+        
             self.layers_[ name ].W.set_value( Wval )
             self.layers_[ name ].b.set_value( bval )
 
@@ -793,21 +790,25 @@ class NeuralNet(BaseEstimator):
         '''
         Function that stores account specific weights
         '''
-        fpath = HOME+'trainedParams/'+self.fp_accW+'.pkl'
+        fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
 
         if os.path.isfile( fpath ):
-            paramDic = pickle.load( open( fpath, 'r' ) )
+            with open( fpath, 'r' ) as f:
+                paramDic = pickle.load( f )
+                
         else:
             paramDic = {}
-            
+           
+
         for name in layerL:
             W = self.layers_[ name ].W.get_value()
-            b = self.layers_[ name ].b.get_value()           
+            b = self.layers_[ name ].b.get_value()
 
             paramDic[ str(k)+name ] = W
             paramDic[ str(k)+name+'_b' ] = b
 
-        pickle.dump( paramDic, open(fpath, 'w' ) )
+        with open( fpath, 'w' ) as f:
+            pickle.dump( paramDic, f )
 
     def __getstate__(self):
         state = dict(self.__dict__)
