@@ -570,39 +570,36 @@ class NeuralNet(BaseEstimator):
 
             t0 = time()
 
-
-            for k, generator, dummy in self.batch_iterator_train( X_train, y_train ):
+            for k, fpaths, Xb, yb in self.batch_iterator_train( X_train, y_train ):
                 if self.account_weights:
                     self.load_account_weights( k, self.account_weight_layers )
 
-                for Xb, yb in generator:
-                    batch_train_loss = self.apply_batch_func(
-                        self.train_iter_, Xb, yb)
-                    train_losses.append(batch_train_loss)
+                batch_train_loss = self.apply_batch_func(
+                    self.train_iter_, Xb, yb)
+                train_losses.append(batch_train_loss)
 
-                    batch_valid_loss, accuracy = self.apply_batch_func(
-                        self.eval_iter_, Xb, yb)
-                    train_accuracies.append(accuracy)
-    
-                    for func in on_batch_finished:
-                        func(self, self.train_history_)
+                batch_valid_loss, accuracy = self.apply_batch_func(
+                    self.eval_iter_, Xb, yb)
+                train_accuracies.append(accuracy)
+   
+                for func in on_batch_finished:
+                    func(self, self.train_history_)
 
                 if self.account_weights:
                     self.save_account_weights( k, self.account_weight_layers )
 
-            for k, generator, dummy in self.batch_iterator_test( X_valid, y_valid ):
+            for k, fpaths, Xb, yb in self.batch_iterator_train( X_valid, y_valid ):
                 if self.account_weights:
                     self.load_account_weights( k, self.account_weight_layers)
             
-                for Xb, yb in generator:
-                    batch_valid_loss, accuracy = self.apply_batch_func(
-                        self.eval_iter_, Xb, yb)
-                    valid_losses.append(batch_valid_loss)
-                    valid_accuracies.append( accuracy )
+                batch_valid_loss, accuracy = self.apply_batch_func(
+                    self.eval_iter_, Xb, yb)
+                valid_losses.append(batch_valid_loss)
+                valid_accuracies.append( accuracy )
 
-                    if self.custom_score:
-                        y_prob = self.apply_batch_func(self.predict_iter_, Xb)
-                        custom_score.append(self.custom_score[1](yb, y_prob))
+                if self.custom_score:
+                    y_prob = self.apply_batch_func(self.predict_iter_, Xb)
+                    custom_score.append(self.custom_score[1](yb, y_prob))
 
             avg_train_loss = np.mean(train_losses)
             avg_valid_loss = np.mean(valid_losses)
@@ -658,44 +655,38 @@ class NeuralNet(BaseEstimator):
         else:
             return func(Xb) if yb is None else func(Xb, yb)
 
-    def predict_proba(self, X, y=None, l=None):
+    def predict_proba(self, X, y=None ):
         probas = []
         real_probas = []
         X_reordered = []
-        l_reordered = []
+        y_reordered = []
 
-        for k, generator, lval in self.batch_iterator_test( X, y, l ):
-            X_reordered.append( generator.X )
-            l_reordered.append( lval ) 
+        for k, fpaths, Xb, yb in self.batch_iterator_test( X, y ):
+            X_reordered.append( fpaths )
             if self.account_weights:
                 self.load_account_weights( k, self.account_weight_layers )
 
-            for Xb, yb in generator:
-                probas.append(self.apply_batch_func(self.predict_iter_, Xb))
+            probas.append(self.apply_batch_func(self.predict_iter_, Xb))
 
-                try:
-                    yb = np.reshape( yb, ( len(yb),1 ) )
-                except TypeError:
-                    pass
+            try:
+                yb = np.reshape( yb, ( len(yb),1 ) )
+            except TypeError:
+                pass
+            y_reordered.append( yb )
 
-                real_probas.append( yb )
         X_reordered = [ val for arr in X_reordered for val in arr ]
-        if len( l_reordered ) == 0:
-            return probas, None, None, None
-        elif l_reordered[0] is not None:
-            l_reordered = np.asarray( [ val for arr in l_reordered for val in arr ], \
-                                        dtype=np.int32 )
-        return np.vstack( probas ),  np.vstack(real_probas)[:,0], X_reordered, l_reordered
+        return np.vstack( probas ),  np.vstack(y_reordered)[:,0], X_reordered
 
-    def predict(self, X, y=None, l=None):
-        y_pred, y_real, X_reordered, l_reordered = self.predict_proba(X,y,l)
+
+    def predict(self, X, y=None):
+        y_pred, y_reordered, X_reordered = self.predict_proba(X,y)
         if self.regression:
-            return y_pred, y_real, X_reordered, l_reordered
+            return y_pred, y_reordered, X_reordered
         else:
             y_pred = np.argmax( y_pred, axis = 1 )
             if self.use_label_encoder:
                 y_pred = self.enc_.inverse_transform( y_pred )
-            return y_pred, y_real, X_reordered, l_reordered
+            return y_pred, y_reordered, X_reordered
 
     def score(self, X, y):
         score = mean_squared_error if self.regression else accuracy_score
@@ -733,12 +724,15 @@ class NeuralNet(BaseEstimator):
             layer = self.layers_.get(key)
             if layer is not None:
                 for p1, p2v in zip(layer.get_params(), values):
+
                     shape1 = p1.get_value().shape
                     shape2 = p2v.shape
                     shape1s = 'x'.join(map(str, shape1))
                     shape2s = 'x'.join(map(str, shape2))
                     if shape1 == shape2:
                         p1.set_value(p2v)
+#                        if layer.name == 'conv1':
+#                            print '\nvalues', p1.get_value()
                         if self.verbose:
                             print(success.format(
                                 key, shape1s, shape2s))
@@ -773,25 +767,21 @@ class NeuralNet(BaseEstimator):
         '''
         Function to load account specific weights
         '''
-        fpath = HOME+'trainedParams/'+self.fp_accW+'.pkl'
-        if os.path.isfile( fpath ):
-            paramDic = pickle.load( open( fpath, 'r' ) )
-        else:
-            paramDic = {}
-
+        fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
         for name in layerL:
-            try:
-                Wval = paramDic[ str(k)+name ].astype( np.float32 )
-                bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
-                if len( np.shape( bval ) ) == 0:
-                    bval = np.reshape( bval, (1,) )
-
-            except KeyError:
-                print k, 'Key Error: init weights!'
+            if os.path.isfile( fpath ):
+                with open( fpath, 'r' ) as f:
+                    paramDic = pickle.load( f )
+                    Wval = paramDic[ str(k)+name ].astype( np.float32 )
+                    bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
+                    if len( np.shape( bval ) ) == 0:
+                        bval = np.reshape( bval, (1,) )
+            else:
+                print 'init weights: ', k
                 uniformInit = Uniform()
                 Wval = uniformInit.sample( np.shape( self.layers_[ name ].W.get_value() ) )
                 bval = uniformInit.sample( np.shape( self.layers_[ name ].b.get_value() ) )
-    
+        
             self.layers_[ name ].W.set_value( Wval )
             self.layers_[ name ].b.set_value( bval )
 
@@ -799,21 +789,25 @@ class NeuralNet(BaseEstimator):
         '''
         Function that stores account specific weights
         '''
-        fpath = HOME+'trainedParams/'+self.fp_accW+'.pkl'
+        fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
 
         if os.path.isfile( fpath ):
-            paramDic = pickle.load( open( fpath, 'r' ) )
+            with open( fpath, 'r' ) as f:
+                paramDic = pickle.load( f )
+                
         else:
             paramDic = {}
-            
+           
+
         for name in layerL:
             W = self.layers_[ name ].W.get_value()
-            b = self.layers_[ name ].b.get_value()           
+            b = self.layers_[ name ].b.get_value()
 
             paramDic[ str(k)+name ] = W
             paramDic[ str(k)+name+'_b' ] = b
 
-        pickle.dump( paramDic, open(fpath, 'w' ) )
+        with open( fpath, 'w' ) as f:
+            pickle.dump( paramDic, f )
 
     def __getstate__(self):
         state = dict(self.__dict__)
