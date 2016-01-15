@@ -769,14 +769,14 @@ class NeuralNet(BaseEstimator):
         '''
         fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
         for name in layerL:
-            if os.path.isfile( fpath ):
+            try:
                 with open( fpath, 'r' ) as f:
                     paramDic = pickle.load( f )
                     Wval = paramDic[ str(k)+name ].astype( np.float32 )
                     bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
                     if len( np.shape( bval ) ) == 0:
                         bval = np.reshape( bval, (1,) )
-            else:
+            except:
                 print 'init weights: ', k
                 uniformInit = Uniform()
                 Wval = uniformInit.sample( np.shape( self.layers_[ name ].W.get_value() ) )
