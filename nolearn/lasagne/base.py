@@ -193,13 +193,14 @@ class NeuralNet(BaseEstimator):
         layer_weights= None,
         account_weights=False,
         accW_layers = [],
-        fp_accW = 'test',
         l3_layers = [],
         verbose=0,
         identifier='test',
         netname = '',
         **kwargs
         ):
+        assert isinstance( int( identifier ), int )
+        fp_accW = str(identifier)+'_accW'
         if loss is not None:
             raise ValueError(
                 "The 'loss' parameter was removed, please use "
@@ -499,8 +500,9 @@ class NeuralNet(BaseEstimator):
 
         return train_iter, eval_iter, predict_iter
 
-    def fit(self, X, y, epochs=None):
-        X, y = self._check_good_input(X, y)
+    def fit(self, X_train, y_train, X_valid, y_valid, epochs=None):
+        X_train, y_train = self._check_good_input(X_train, y_train)
+        X_valid, y_valid = self._check_good_input(X_valid, y_valid)
 
         if self.use_label_encoder:
             self.enc_ = LabelEncoder()
@@ -509,7 +511,7 @@ class NeuralNet(BaseEstimator):
         self.initialize()
 
         try:
-            self.train_loop(X, y, epochs=epochs)
+            self.train_loop(X_train, y_train, X_valid, y_valid, epochs=epochs)
         except KeyboardInterrupt:
             pass
         return self
@@ -517,9 +519,9 @@ class NeuralNet(BaseEstimator):
     def partial_fit(self, X, y, classes=None):
         return self.fit(X, y, epochs=1)
 
-    def train_loop(self, X, y, epochs=None):
+    def train_loop(self, X_train, y_train, X_valid, y_valid, epochs=None):
         epochs = epochs or self.max_epochs
-        X_train, X_valid, y_train, y_valid = self.train_split(X, y, self)
+#        X_train, X_valid, y_train, y_valid = self.train_split(X, y, self)
 
         on_batch_finished = self.on_batch_finished
         if not isinstance(on_batch_finished, (list, tuple)):
@@ -572,26 +574,27 @@ class NeuralNet(BaseEstimator):
 
             for k, fpaths, Xb, yb in self.batch_iterator_train( X_train, y_train ):
                 if self.account_weights:
-                    self.load_account_weights( k, self.account_weight_layers )
+                    self.load_account_weights( k )
 
-                batch_train_loss = self.apply_batch_func(
-                    self.train_iter_, Xb, yb)
-                train_losses.append(batch_train_loss)
+                batch_train_loss = self.apply_batch_func( self.train_iter_, Xb, yb )
 
-                batch_valid_loss, accuracy = self.apply_batch_func(
+                dummy, accuracy = self.apply_batch_func(
                     self.eval_iter_, Xb, yb)
+
                 train_accuracies.append(accuracy)
+                train_losses.append(batch_train_loss)
    
                 for func in on_batch_finished:
                     func(self, self.train_history_)
 
                 if self.account_weights:
-                    self.save_account_weights( k, self.account_weight_layers )
+                    self.save_account_weights( k )
 
             for k, fpaths, Xb, yb in self.batch_iterator_train( X_valid, y_valid ):
                 if self.account_weights:
-                    self.load_account_weights( k, self.account_weight_layers)
-            
+                    self.load_account_weights( k )
+           
+                
                 batch_valid_loss, accuracy = self.apply_batch_func(
                     self.eval_iter_, Xb, yb)
                 valid_losses.append(batch_valid_loss)
@@ -664,7 +667,7 @@ class NeuralNet(BaseEstimator):
         for k, fpaths, Xb, yb in self.batch_iterator_test( X, y ):
             X_reordered.append( fpaths )
             if self.account_weights:
-                self.load_account_weights( k, self.account_weight_layers )
+                self.load_account_weights( k, BEST_LOSS = True )
 
             probas.append(self.apply_batch_func(self.predict_iter_, Xb))
 
@@ -763,12 +766,18 @@ class NeuralNet(BaseEstimator):
              "Please use 'save_params_to' instead.")
         return self.save_params_to(fname)
 
-    def load_account_weights( self, k, layerL ):
+    def load_account_weights( self, k, BEST_LOSS=False ):
         '''
         Function to load account specific weights
         '''
-        fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
-        for name in layerL:
+        if BEST_LOSS:
+            fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'_loss_prms.pkl'
+            if not os.path.isfile( fpath ):
+                fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
+        else:
+            fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
+        
+        for name in self.account_weight_layers:
             try:
                 with open( fpath, 'r' ) as f:
                     paramDic = pickle.load( f )
@@ -785,11 +794,13 @@ class NeuralNet(BaseEstimator):
             self.layers_[ name ].W.set_value( Wval )
             self.layers_[ name ].b.set_value( bval )
 
-    def save_account_weights( self, k, layerL ):
+    def save_account_weights( self, k, BEST_LOSS=False ):
         '''
         Function that stores account specific weights
         '''
         fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
+        if BEST_LOSS:
+            fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'_loss_prms.pkl'
 
         if os.path.isfile( fpath ):
             with open( fpath, 'r' ) as f:
@@ -798,8 +809,7 @@ class NeuralNet(BaseEstimator):
         else:
             paramDic = {}
            
-
-        for name in layerL:
+        for name in self.account_weight_layers:
             W = self.layers_[ name ].W.get_value()
             b = self.layers_[ name ].b.get_value()
 
