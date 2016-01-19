@@ -192,7 +192,7 @@ class NeuralNet(BaseEstimator):
         more_params=None,
         layer_weights= None,
         account_weights=False,
-        accW_layers = [],
+        account_weight_layers = [],
         l3_layers = [],
         verbose=0,
         identifier='test',
@@ -259,7 +259,7 @@ class NeuralNet(BaseEstimator):
         self.more_params = more_params or {}
         self.layer_weights = layer_weights
         self.account_weights = account_weights
-        self.account_weight_layers = accW_layers
+        self.account_weight_layers = account_weight_layers
         self.fp_accW = fp_accW
         self.l3_layers = l3_layers
         self.verbose = verbose
@@ -690,10 +690,6 @@ class NeuralNet(BaseEstimator):
             if self.use_label_encoder:
                 y_pred = self.enc_.inverse_transform( y_pred )
             return y_pred, y_reordered, X_reordered
-
-    def score(self, X, y):
-        score = mean_squared_error if self.regression else accuracy_score
-        return float(score(self.predict(X), y))
 
     def get_all_layers(self):
         return self.layers_.values()
