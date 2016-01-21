@@ -571,15 +571,20 @@ class NeuralNet(BaseEstimator):
             custom_score = []
 
             t0 = time()
-
+            time_i = time()
             for k, fpaths, Xb, yb in self.batch_iterator_train( X_train, y_train ):
+                #print time() - time_i
                 if self.account_weights:
+                    time0 = time()
                     self.load_account_weights( k )
 
+                time0 = time()
                 batch_train_loss = self.apply_batch_func( self.train_iter_, Xb, yb )
+                #print 'training batch', time() - time0
+                accuracy = 0.
 
-                dummy, accuracy = self.apply_batch_func(
-                    self.eval_iter_, Xb, yb)
+#                dummy, accuracy = self.apply_batch_func(
+#                    self.eval_iter_, Xb, yb)
 
                 train_accuracies.append(accuracy)
                 train_losses.append(batch_train_loss)
@@ -588,15 +593,19 @@ class NeuralNet(BaseEstimator):
                     func(self, self.train_history_)
 
                 if self.account_weights:
+                    time0 = time()
                     self.save_account_weights( k )
+                time_i = time()
 
             for k, fpaths, Xb, yb in self.batch_iterator_train( X_valid, y_valid ):
                 if self.account_weights:
                     self.load_account_weights( k )
            
-                
+                time0 = time()
                 batch_valid_loss, accuracy = self.apply_batch_func(
                     self.eval_iter_, Xb, yb)
+                #print 'predicting batch', time()-time0
+
                 valid_losses.append(batch_valid_loss)
                 valid_accuracies.append( accuracy )
 
