@@ -139,7 +139,8 @@ def objective(layers,
               loss_function,
               target,
               aggregate=aggregate,
-              mode= 'mean',
+              mode='mean',
+              weights=None,
               deterministic=False,
               l1=0,
               l2=0,
@@ -151,7 +152,7 @@ def objective(layers,
     output_layer = layers[-1]
     network_output = get_output(
         output_layer, deterministic=deterministic, **get_output_kw)
-    loss = aggregate(loss_function(network_output, target), mode = mode)
+    loss = aggregate(loss_function(network_output, target), weights=weights, mode=mode)
 
     if l1:
         loss += regularization.regularize_layer_params(
@@ -500,7 +501,7 @@ class NeuralNet(BaseEstimator):
 
         return train_iter, eval_iter, predict_iter
 
-    def fit(self, X_train, y_train, X_valid, y_valid, epochs=None):
+    def fit(self, X_train, y_train, X_valid, y_valid ):
         X_train, y_train = self._check_good_input(X_train, y_train)
         X_valid, y_valid = self._check_good_input(X_valid, y_valid)
 
@@ -511,7 +512,7 @@ class NeuralNet(BaseEstimator):
         self.initialize()
 
         try:
-            self.train_loop(X_train, y_train, X_valid, y_valid, epochs=epochs)
+            self.train_loop(X_train, y_train, X_valid, y_valid )
         except KeyboardInterrupt:
             pass
         return self
@@ -519,8 +520,7 @@ class NeuralNet(BaseEstimator):
     def partial_fit(self, X, y, classes=None):
         return self.fit(X, y, epochs=1)
 
-    def train_loop(self, X_train, y_train, X_valid, y_valid, epochs=None):
-        epochs = epochs or self.max_epochs
+    def train_loop(self, X_train, y_train, X_valid, y_valid ):
 #        X_train, X_valid, y_train, y_valid = self.train_split(X, y, self)
 
         on_batch_finished = self.on_batch_finished
@@ -561,7 +561,10 @@ class NeuralNet(BaseEstimator):
 
         num_epochs_past = len(self.train_history_)
     
-        while epoch < epochs:
+        self.SANE = True
+        while epoch < self.max_epochs:
+            if not self.SANE:
+                continue
             epoch += 1
 
             train_losses = []
@@ -573,6 +576,8 @@ class NeuralNet(BaseEstimator):
             t0 = time()
             time_i = time()
             for k, fpaths, Xb, yb in self.batch_iterator_train( X_train, y_train ):
+                if not self.SANE:
+                    continue
                 #print time() - time_i
                 if self.account_weights:
                     time0 = time()
@@ -787,17 +792,20 @@ class NeuralNet(BaseEstimator):
                 with open( fpath, 'r' ) as f:
                     paramDic = pickle.load( f )
                     Wval = paramDic[ str(k)+name ].astype( np.float32 )
-                    bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
-                    if len( np.shape( bval ) ) == 0:
-                        bval = np.reshape( bval, (1,) )
+                    if self.layers_[ name ].b is not None:
+                        bval = paramDic[ str(k)+name+'_b' ].astype( np.float32 )
+                        if len( np.shape( bval ) ) == 0:
+                            bval = np.reshape( bval, (1,) )
             except:
                 print 'init weights: ', k
                 uniformInit = Uniform()
                 Wval = uniformInit.sample( np.shape( self.layers_[ name ].W.get_value() ) )
-                bval = uniformInit.sample( np.shape( self.layers_[ name ].b.get_value() ) )
+                if self.layers_[ name ].b is not None:
+                    bval = uniformInit.sample( np.shape( self.layers_[ name ].b.get_value() ) )
         
             self.layers_[ name ].W.set_value( Wval )
-            self.layers_[ name ].b.set_value( bval )
+            if self.layers_[ name ].b is not None:
+                self.layers_[ name ].b.set_value( bval )
 
     def save_account_weights( self, k, BEST_LOSS=False ):
         '''
@@ -816,10 +824,11 @@ class NeuralNet(BaseEstimator):
            
         for name in self.account_weight_layers:
             W = self.layers_[ name ].W.get_value()
-            b = self.layers_[ name ].b.get_value()
-
             paramDic[ str(k)+name ] = W
-            paramDic[ str(k)+name+'_b' ] = b
+
+            if self.layers_[ name ].b is not None:
+                b = self.layers_[ name ].b.get_value()
+                paramDic[ str(k)+name+'_b' ] = b
 
         with open( fpath, 'w' ) as f:
             pickle.dump( paramDic, f )
