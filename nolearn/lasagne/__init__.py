@@ -11,4 +11,3 @@ from .base import (
     NeuralNet,
     TrainSplit,
     )
-from .nolearn_global_var import HOME

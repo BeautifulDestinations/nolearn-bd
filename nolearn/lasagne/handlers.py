@@ -15,7 +15,6 @@ from .util import ansi
 from .util import get_conv_infos
 from .util import is_conv2d
 
-from .nolearn_global_var import HOME
 
 class PrintLog:
     def __init__(self):
@@ -55,7 +54,7 @@ class PrintLog:
             [info_tabulate], headers="keys", floatfmt='.5f')
 
         out = ""
-        fname=HOME+'trainedParams/'+nn.identifier+'_tracker.csv'
+        fname=nn.HOME+'trainedParams/'+nn.identifier+'_tracker.csv'
         if self.first_iteration:
             out = "\n".join(tabulated.split('\n', 2)[:2])
             out += "\n"

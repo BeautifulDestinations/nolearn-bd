@@ -33,8 +33,6 @@ from theano import tensor as T
 from . import PrintLog
 from . import PrintLayerInfo
 
-from .nolearn_global_var import HOME
-
 class _list(list):
     pass
 
@@ -197,6 +195,7 @@ class NeuralNet(BaseEstimator):
         l3_layers = [],
         verbose=0,
         identifier='test',
+        HOME='',
         netname = '',
         **kwargs
         ):
@@ -266,6 +265,7 @@ class NeuralNet(BaseEstimator):
         self.verbose = verbose
         self.identifier = identifier
         self.netname = netname
+        self.HOME = HOME
         if self.verbose:
             # XXX: PrintLog should come before any other handlers,
             # because early stopping will otherwise cause the last
@@ -781,11 +781,11 @@ class NeuralNet(BaseEstimator):
         Function to load account specific weights
         '''
         if BEST_LOSS:
-            fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'_loss_prms.pkl'
+            fpath = self.HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'_loss_prms.pkl'
             if not os.path.isfile( fpath ):
-                fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
+                fpath = self.HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
         else:
-            fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
+            fpath = self.HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
         
         for name in self.account_weight_layers:
             try:
@@ -811,9 +811,9 @@ class NeuralNet(BaseEstimator):
         '''
         Function that stores account specific weights
         '''
-        fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
+        fpath = self.HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'.pkl'
         if BEST_LOSS:
-            fpath = HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'_loss_prms.pkl'
+            fpath = self.HOME+'trainedParams/'+self.fp_accW+'_'+str(k)+'_loss_prms.pkl'
 
         if os.path.isfile( fpath ):
             with open( fpath, 'r' ) as f:
